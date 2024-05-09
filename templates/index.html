@@ -51,6 +51,13 @@
         input[type="submit"]:hover {
             background-color: #0056b3;
         }
+        /* Styling for success message */
+        .success-message {
+            color: #28a745; /* Green color */
+            margin-top: 10px;
+            font-size: 16px;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
@@ -69,8 +76,8 @@
             <input type="submit" value="Submit">
         </form>
         {% if success_message %}
-        <p>{{ success_message }}</p>
-    {% endif %}
+            <p class="success-message">{{ success_message }}</p>
+        {% endif %}
     </div>
 </body>
 </html>
