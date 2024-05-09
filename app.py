@@ -1,6 +1,5 @@
 from flask import Flask, request, render_template
 import pyodbc
-
 import os
 
 SERVER = os.environ['SERVER']
@@ -12,7 +11,7 @@ app = Flask(__name__)
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return render_template('index.html', success_message=None)
 
 @app.route('/store_data', methods=['POST'])
 def store_data():
@@ -24,7 +23,7 @@ def store_data():
 
         # Azure SQL connection string
         connectionString = f'DRIVER={{ODBC Driver 18 for SQL Server}};SERVER={SERVER};DATABASE={DATABASE};UID={USERNAME};PWD={PASSWORD}'
-        #connectionString = os.environ['SQLAZURECONNSTR_AZEEM_SQL']
+
         # Establish connection
         conn = pyodbc.connect(connectionString) 
 
@@ -40,10 +39,12 @@ def store_data():
         # Commit transaction
         conn.commit()
 
-        return 'Data stored successfully'
+        success_message = 'Data stored successfully'
 
     except Exception as e:
-        return f'Error: {str(e)}'
+        success_message = f'Error: {str(e)}'
+
+    return render_template('index.html', success_message=success_message)
 
 if __name__ == '__main__':
     app.run(debug=True)

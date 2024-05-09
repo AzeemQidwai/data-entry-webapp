@@ -68,6 +68,9 @@
             
             <input type="submit" value="Submit">
         </form>
+        {% if success_message %}
+        <p>{{ success_message }}</p>
+    {% endif %}
     </div>
 </body>
 </html>
