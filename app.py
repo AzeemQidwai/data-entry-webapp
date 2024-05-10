@@ -40,7 +40,7 @@ def submit_review():
 
         # Insert data into table
         cursor.execute(
-            "INSERT INTO review_table (CustomerName, CustomerEmail, Review, Rating) VALUES (?, ?, ?, ?))",
+            "INSERT INTO review_table (CustomerName, CustomerEmail, Review, Rating) VALUES (?, ?, ?, ?)",
             name, email, review, rating
         )
 
