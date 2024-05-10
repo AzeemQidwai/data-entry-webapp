@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Thank You!</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: url("{{ url_for('static', filename='background_t.png') }}") no-repeat center center fixed; 
+            background-size: cover;
+            margin: 0;
+            padding: 0;
+            text-align: center;
+            padding: 50px;
+        }
+        .container {
+            max-width: 600px;
+            margin: 30px auto;
+            background-color: rgba(247, 248, 250, 0.9); /* Made container slightly transparent */
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.15);
+        }
+        .logo {
+            width: 300px; /* Larger logo size */
+            margin: auto;
+        }
+        h1 {
+            margin-top: 20px;
+        }
+        p {
+            font-size: 18px;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <img src="{{ url_for('static', filename='logo-t.png') }}" alt="Byte & Brew Logo" class="logo">
+    <div class="container">
+        <h1>Thank You, {{ name }}!</h1>
+        <p><span>We appreciate you taking the time to give a review. Your feedback helps us to improve our service.</span></p>
+    </div>
+</body>
+</html>
