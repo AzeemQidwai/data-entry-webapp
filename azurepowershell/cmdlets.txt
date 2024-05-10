@@ -1,0 +1,107 @@
+#################### Ensure Az Module is installed and user is authenticated #############################
+Install-Module -Name Az -AllowClobber -Scope CurrentUser
+Import-Module Az
+Connect-AzAccount
+
+
+## Set your subscription to "Azure for Students"##
+$subscriptionName = "Azure for Students"
+Select-AzSubscription -SubscriptionName $subscriptionName
+
+####################3 Step 1: Create a Virtual Network & ResoureGroup############################
+$resourceGroup = "CloudForWebApp"
+$location = "eastus"
+$vnetName = "MysecureNet"
+$vnetAddressPrefix = "10.0.0.0/16"    
+$subnetName = "Mysubnet"
+$subnetAddressPrefix = "10.0.1.0/24"
+
+# Create new resource group if necessary
+New-AzResourceGroup -Name $resourceGroup -Location $location
+
+# Create the VNet
+$vnet = New-AzVirtualNetwork -ResourceGroupName $resourceGroup -Location $location -Name $vnetName -AddressPrefix $vnetAddressPrefix
+Add-AzVirtualNetworkSubnetConfig -Name $subnetName -AddressPrefix $subnetAddressPrefix -VirtualNetwork $vnet
+$vnet = Set-AzVirtualNetwork -VirtualNetwork $vnet
+
+############################ Step 2: Create Azure SQL Database###############################
+$databaseName = "Reviewsdb"
+$sqlServerName = "sqlserver-ay"    (should be lower case)
+$privateEndpointName = "MyPrivateEndpoint"
+
+# Create a new SQL Server
+$sqlServer = New-AzSqlServer -ResourceGroupName $resourceGroup -ServerName $sqlServerName -Location $location -SqlAdministratorCredentials (Get-Credential)
+##user = ayesha11418
+##password = ayesha@11418    (choose a long password)
+
+# Create SQL Database
+$db = New-AzSqlDatabase --ResourceGroupName $resourceGroup -ServerName $sqlServerName -DatabaseName $databaseName
+
+
+# Define the private link service connection
+$privateLinkServiceConnection = @{
+    Name = $privateEndpointName
+    PrivateLinkServiceId = "/subscriptions/c6bf15f8-f98e-4a01-9d1b-f248a63c9eab/resourceGroups/CloudForWebApp/providers/Microsoft.Sql/servers/sqlserver-ay"
+    GroupIds = @('sqlServer') 
+}
+
+$vnet = Get-AzVirtualNetwork -ResourceName $vnetName -ResourceGroupName $resourceGroup
+$subnet = $vnet | Select-Object -ExpandProperty subnets | Where-Object Name -eq $subnetName
+
+
+$privateEndpoint = New-AzPrivateEndpoint -Name $privateEndpointName -ResourceGroupName $resourceGroup -Location $location -PrivateLinkServiceConnection $privateLinkServiceConnection -Subnet $subnet
+
+
+############################## Step 3: Create a Virtual Machine #########################################
+$vmName = "AzureVM"
+$vmSize = "Standard_DS1_v2"
+$adminUsername = "adminuser"
+$adminPassword = ConvertTo-SecureString "Password123!" -AsPlainText -Force
+
+# Retrieve existing VNet and Subnet
+$vnet = Get-AzVirtualNetwork -Name $vnetName -ResourceGroupName $resourceGroup
+$subnet = Get-AzVirtualNetworkSubnetConfig -Name $subnetName -VirtualNetwork $vnet
+
+# NIC configuration
+$ipConfig = New-AzNetworkInterfaceIpConfig -Name "ipconfig" -SubnetId $subnet.Id
+$nicName = "$vmName-NIC"
+$nic = New-AzNetworkInterface -Name $nicName -ResourceGroupName $resourceGroup -Location $location -IpConfiguration $ipConfig
+$cred = Get-Credential `
+   -Message "Enter a username and password for the virtual machine."
+
+# VM configuration
+$vmConfig = New-AzVMConfig -VMName $vmName -VMSize $vmSize
+$vmConfig = Set-AzVMOperatingSystem -VM $vmConfig -Linux -ComputerName $vmName -Credential $cred
+$vmConfig = Add-AzVMNetworkInterface -VM $vmConfig -Id $nic.Id
+$vmConfig = Set-AzVMSourceImage -VM $vmConfig -PublisherName "Canonical" -Offer "0001-com-ubuntu-server-jammy" -Skus "22_04-lts-gen2" -Version "latest"
+$vmConfig = Set-AzVMOSDisk -VM $vmConfig -CreateOption "FromImage" -StorageAccountType "StandardSSD_LRS"
+
+$vmConfig = Set-AzVmSecurityProfile -VM $vmConfig -SecurityType "TrustedLaunch" 
+$vmConfig = Set-AzVmUefi -VM $vmConfig -EnableVtpm $true -EnableSecureBoot $true 
+
+# Create the VM
+New-AzVM -ResourceGroupName $resourceGroup -Location $location -VM $vmConfig
+
+############################ Step 4: Create an Azure App Service for FLASK app #####################################
+$appServiceName = "BytenBrewReviews"
+$runtimeStack = "PYTHON|3.10"
+
+
+# Create App Service Plan
+New-AzAppServicePlan -ResourceGroupName $resourceGroup -Name "${appServiceName}Plan" -Location $location -Tier "Basic" -NumberofWorkers 2 -WorkerSize "Small"
+
+New-AzAppServicePlan -Name "${appServiceName}Plan" -Location $location -ResourceGroupName $resourceGroup -Tier "Basic" -WorkerSize "Small" -Linux
+
+New-AzWebApp -ResourceGroupName $resourceGroup -AppServicePlan "${appServiceName}Plan" -Name $appServiceName -Runtime "PYTHON|3.10" -Linux
+
+# Configure Basic Authentication for the Web App
+Set-AzWebApp -ResourceGroupName $resourceGroup -Name $appServiceName -AuthSettings @{Enabled=$true; DefaultProvider="AzureActiveDirectory"}
+
+# Enable continuous deployment from GitHub
+$gitHubToken = "<YOUR_GITHUB_TOKEN>" 
+$RepoUrl = "https://github.com/AyeshaAmjad0828/data-entry-webapp"
+Set-AzWebAppSourceControl -ResourceGroupName $resourceGroup -Name $appServiceName -RepoUrl $RepoUrl -Branch "ayesha-cloud" -GitToken $gitHubToken -ContinuousDeployment $true
+
+# Output the Web App configuration
+Get-AzWebApp -ResourceGroupName $resourceGroup -Name "BytenBrewReviews"
+
